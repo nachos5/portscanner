@@ -1,5 +1,7 @@
 import argparse
 
+from scapy.arch.windows import IFACES
+
 from .scanner import Scanner
 from .utils.types import (
     ip_address_type,
@@ -11,15 +13,22 @@ from .utils.types import (
 
 def run(args):
     parsed_args = parse_args(args)
+    print(parsed_args)
     ip_addresses = parsed_args.file if parsed_args.file else parsed_args.list
     ports = (
         parsed_args.portfile
         if parsed_args.portfile
         else list(range(parsed_args.portrange[0], parsed_args.portrange[1] + 1))
     )
-    print(ip_addresses)
+    use_timeout = parsed_args.timeout
+    # print(ip_addresses)
     # print(ports)
-    scanner = Scanner(hostlist=ip_addresses, portlist=ports)
+    scanner = Scanner(
+        hostlist=ip_addresses,
+        portlist=ports,
+        thread_count=5000,
+        use_timeout=use_timeout,
+    )
     scanner.scan_all_hosts()
 
 
@@ -55,6 +64,14 @@ def parse_args(args):
         help="Scantype, available choices are FULL, SYN, ACK or XMAS",
         choices=["FULL", "SYN", "ACK", "XMAS"],
         required=True,
+    )
+    parser.add_argument(
+        "-t",
+        "--timeout",
+        help="""If this flag is set, a timeout of 1 sec. is used for each portscan.
+        Use this for faster scanning, but potentially less accurate results (since some
+        open ports might take longer then 1 sec. to respond).""",
+        action="store_true",
     )
 
     return parser.parse_args(args)
