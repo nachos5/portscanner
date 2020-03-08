@@ -22,51 +22,66 @@ class Scanner:
     hostlist - list of hosts to scan.
     portlist - list of ports to scan for each host.
     thread_count - the maximum number of threads running at once.
-    use_timeout - whether a timeout should be used for each scan or not.
+    timeout - timeout in seconds for each scan.
+
+    scan_type - *optional - type of scan to use. Choices are... Defaults to SYN.
     """
 
     def __init__(self, *args, **kwargs):
-        self.hostlist = kwargs.pop("hostlist") if kwargs else []
-        self.portlist = sorted(kwargs.pop("portlist")) if kwargs else []
-        self.portlist_len = len(self.portlist) if kwargs else 0
-        self.thread_count = int(kwargs.pop("thread_count")) if kwargs else 100
-        self.use_timeout = kwargs.pop("use_timeout") if kwargs else False
-        # optional argument - some users might experience errors without declaring an interface
-        if "interface" in kwargs:
-            self.interface = kwargs.pop("interface")
-        else:
-            self.interface = None
+        kwargs_bool = bool(kwargs)
+        self.hostlist = kwargs.pop("hostlist") if kwargs_bool else []
+        self.portlist = sorted(kwargs.pop("portlist")) if kwargs_bool else []
+        self.portlist_len = len(self.portlist) if kwargs_bool else 0
+        self.thread_count = int(kwargs.pop("thread_count")) if kwargs_bool else 100
+        self.timeout = kwargs.pop("timeout") if kwargs_bool else 1
 
-    def add_host(host):
+        scan_type_choices = ["SYN", "XMAS"]
+        scan_type = kwargs.pop("scan_type") if "scan_type" in kwargs else "SYN"
+        if scan_type not in scan_type_choices:
+            raise Exception(
+                f"Invalid scan type. Available choices are {' '.join(scan_type_choices)}."
+            )
+        self.scan_type = scan_type
+
+        # utility variables
+        self.debug = False if kwargs_bool else True
+        self.SYNACK = 0x12
+        self.RSTACK = 0x14
+        self.init_port_dict()
+
+    def init_port_dict(self):
+        self.port_dict = dict(open=[], closed=[], filtered=[])
+
+    def print_port_dict(self):
+        o = ", ".join(sorted([str(x) for x in self.port_dict["open"]]))
+        c = ", ".join(sorted([str(x) for x in self.port_dict["closed"]]))
+        f = ", ".join(sorted([str(x) for x in self.port_dict["filtered"]]))
+        if o:
+            print(f"Open ports:\n{o}\n")
+        else:
+            print("No open ports.")
+        if c:
+            print(f"Closed ports:\n{c}\n")
+        else:
+            print("No closed ports.")
+        if f:
+            print(f"Filtered ports:\n{f}\n")
+        else:
+            print("No filtered ports.")
+
+    def add_host(self, host):
         pass
 
-    def add_port(port):
+    def add_port(self, port):
         pass
 
     def random_ip_address(self):
         return str(IPv4Address(random.getrandbits(32)))
 
     def random_port(self):
-        return random.randint(0, 65535)
+        return int(RandShort())
 
-    # def portscan(self, hostname, port):
-    #     """
-    #     Scans a single port for a particular host. If use_timeout is set, a 1 sec.
-    #     timeout is used for the scan.
-    #     """
-    #     serverIP = socket.gethostbyname(hostname)
-    #     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #     if self.use_timeout:
-    #         sock.settimeout(1)
-
-    #     try:
-    #         c = sock.connect((serverIP, port))
-    #         print(f"Port {port} is open")
-    #         c.close()
-    #     except:
-    #         pass
-
-    def portscan(self, host, port):
+    def get_packets(self, host, port, flags="S"):
         # generating IP packet
         IP_Packet = IP()
         IP_Packet.dst = host
@@ -74,23 +89,40 @@ class Scanner:
         TCP_Packet = TCP()
         TCP_Packet.sport = self.random_port()
         TCP_Packet.dport = port
-        TCP_Packet.flags = "S"
-        # generating final packet
-        final_packet = IP_Packet / TCP_Packet
-        # send and receive
-        if self.interface:
+        TCP_Packet.flags = flags
+        return (IP_Packet, TCP_Packet)
+
+    def portscan(self, host, port):
+        if self.scan_type == "SYN":
+            return self.syn_scan(host, port)
+
+    def syn_scan(self, host, port):
+        try:
+            IP_Packet, TCP_Packet = self.get_packets(host, port)
+            # generating final packet
             res_packet = sr1(
-                final_packet, timeout=1, verbose=False, iface=self.interface
+                IP_Packet / TCP_Packet, timeout=self.timeout, verbose=False
             )
-            print(res_packet)
-        else:
-            res_packet = sr1(final_packet, timeout=1, verbose=False)
-        if res_packet:
-            print("wtf")
-            print(res_packet)
-            # res_flags = res_packet.getlayer(TCP).flags
-            # if res_flags == SYNACK:
-            #     print(f"Port {port} is open")
+            if res_packet:
+                res_flags = res_packet.getlayer(TCP).flags
+                if res_flags == self.SYNACK:
+                    self.port_dict["open"].append(port)
+                    if self.debug:
+                        print(f"Port {port} is open")
+                elif res_flags == self.RSTACK:
+                    self.port_dict["closed"].append(port)
+                    if self.debug:
+                        print(f"Port {port} is closed")
+            # we send a rst packet to terminate the connection (stealth scan)
+            TCP_Packet.flags = "R"
+            send(IP_Packet / TCP_Packet, verbose=False)
+        except KeyboardInterrupt:
+            # we send a rst packet to terminate the connection (stealth scan)
+            TCP_Packet.flags = "R"
+            send(IP_Packet / TCP_Packet, verbose=False)
+
+    def xmas_scan(self, host, port):
+        pass
 
     def scan_host(self, host, counter=0):
         """
@@ -136,6 +168,8 @@ class Scanner:
         for host in self.hostlist:
             print(f"Scanning host: {host}")
             self.scan_host(host)
+            self.print_port_dict()
+            self.init_port_dict()
             print()
-        print(f"time: {datetime.now() - t1}")
+        print(f"Total time: {datetime.now() - t1}")
 
