@@ -18,11 +18,19 @@ def run(args):
         if parsed_args.portfile
         else list(range(parsed_args.portrange[0], parsed_args.portrange[1] + 1))
     )
+    scan_type = parsed_args.scantype
     timeout = parsed_args.timeout
-    # print(ip_addresses)
-    # print(ports)
+    output_all = parsed_args.output_all
+    thread_count = parsed_args.thread_count
+    debug = False
     scanner = Scanner(
-        hostlist=ip_addresses, portlist=ports, thread_count=5000, timeout=timeout,
+        hostlist=ip_addresses,
+        portlist=ports,
+        scan_type=scan_type,
+        thread_count=thread_count,
+        timeout=timeout,
+        output_all=output_all,
+        debug=debug,
     )
     scanner.scan_all_hosts()
 
@@ -56,9 +64,9 @@ def parse_args(args):
     parser.add_argument(
         "-s",
         "--scantype",
-        help="Scantype, available choices are FULL, SYN, ACK or XMAS",
-        choices=["FULL", "SYN", "ACK", "XMAS"],
-        required=True,
+        help="Scantype, available choices are SYNSTEALTH or SYN",
+        choices=["SYNSTEALTH", "SYN"],
+        default="SYNSTEALTH",
     )
     parser.add_argument(
         "-t",
@@ -66,6 +74,20 @@ def parse_args(args):
         help="Timeout for each port scan in seconds, defaults to 1 sec.",
         type=int,
         default=1,
+    )
+    parser.add_argument(
+        "-o",
+        "--output-all",
+        help="""If this flag is set, open, filtered and closed ports
+                are outputted, else only open ones.""",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-tc",
+        "--thread-count",
+        help="The maximum amount of threads running at once.",
+        type=int,
+        default=1000,
     )
 
     return parser.parse_args(args)
