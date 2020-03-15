@@ -39,7 +39,7 @@ class Scanner:
         )
         self.timeout = kwargs.pop("timeout") if "timeout" in kwargs else 1
 
-        scan_type_choices = ["SYN", "SYNSTEALTH"]
+        scan_type_choices = ["SOCK", "SYN", "SYNSTEALTH"]
         scan_type = kwargs.pop("scan_type") if "scan_type" in kwargs else "SYNSTEALTH"
         if scan_type not in scan_type_choices:
             raise Exception(
@@ -140,6 +140,9 @@ class Scanner:
         return int(RandShort())
 
     def checkhost(self, host):
+        """
+        This function checks whether a host can be resolved or not.
+        """
         try:
             sr1(IP(dst=host) / ICMP(), verbose=False)
             return True
@@ -165,12 +168,38 @@ class Scanner:
         return sr1(IP_Packet / TCP_Packet, timeout=self.timeout, verbose=False)
 
     def portscan(self, host, port):
-        if self.scan_type == "SYNSTEALTH":
-            return self.syn_scan(host, port)
+        """
+        A port scan is performed according to the scan type instance variable.
+        """
+        if self.scan_type == "SOCK":
+            return self.syn_simple_scan(host, port)
         elif self.scan_type == "SYN":
             return self.syn_scan(host, port, stealth=False)
+        elif self.scan_type == "SYNSTEALTH":
+            return self.syn_scan(host, port)
+
+    def syn_simple_scan(self, host, port):
+        """
+        Simple SYN scan using sockets.
+        """
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(self.timeout)
+        try:
+            sock.connect((host, port))
+            self.port_dict["open"].append(port)
+            if self.verbose:
+                print(f"Port {port} is open")
+            sock.close()
+        except:
+            self.port_dict["closed"].append(port)
+            if self.verbose:
+                print(f"Port {port} is closed")
 
     def syn_scan(self, host, port, stealth=True):
+        """
+        Performs a SYN scan, defaults to a stealth scan; where a rst ack packet is sent to
+        close the connection. Utilizes Scapy.
+        """
         try:
             IP_Packet, TCP_Packet = self.get_packets(host, port)
             # generating final packet

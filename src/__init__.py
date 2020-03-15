@@ -13,7 +13,6 @@ from .utils.types import (
 
 def run(args):
     parsed_args = parse_args(args)
-    print(parsed_args)
 
     ip_addresses = parsed_args.file if parsed_args.file else parsed_args.list
     # we need to 'extract' all hosts from CIDR network addresses
@@ -84,9 +83,11 @@ def parse_args(args):
     parser.add_argument(
         "-s",
         "--scantype",
-        help="Scantype, available choices are SYNSTEALTH or SYN",
-        choices=["SYNSTEALTH", "SYN"],
-        default="SYNSTEALTH",
+        help="""Scantype, available choices are SOCK, SYN and SYNSTEALTH.
+                Defaults to SOCK. Sock utlizes sockets and is much faster
+                then SYN and SYNSTEALTH, which utilize Scapy.""",
+        choices=["SOCK", "SYN", "SYNSTEALTH"],
+        default="SOCK",
     )
     parser.add_argument(
         "-r",

@@ -1,8 +1,17 @@
 # Port Scanner
 
+Made by:
+
+* Guðmundur Óli Norland (gon2@hi.is)
+* Hjalti Geir Garðarsson (hgg29@hi.is)
+
 This is a TCP port scanner made with Python 3. Install required packages by running:
 
     pip install -r requirements/base.txt
+
+We recommend installing in a isolated virtual environment which you can setup by running (here using the name env):
+
+    python -m venv env
 
 ## Usage
 
@@ -28,8 +37,8 @@ Arguments:
 * -pf PORTFILE, --portfile PORTFILE
   * A textfile containing one port per line
 
-* -s {SYNSTEALTH,SYN}, --scantype {SYNSTEALTH,SYN}
-  * Scantype, available choices are SYNSTEALTH or SYN
+* -s {SOCK,SYN,SYNSTEALTH}, --scantype {SOCK,SYN,SYNSTEALTH}
+  * Scantype, available choices are SOCK, SYN and SYNSTEALTH. Defaults to SOCK. Sock utlizes sockets and is much faster then SYN and SYNSTEALTH, which utilize Scapy.
 
 * -r {ports,hosts,both}, --randomize {ports,hosts,both}
   * Randomizes the order of the portlist/hostlist (or both).
@@ -55,10 +64,14 @@ Scanning a range of ports of one host:
 
     python portscanner.py -l scanme.nmap.org -p 1-100
 
+Scanning a range of ports of one host using SYN stealth scan (Scapy):
+
+    python portscanner.py -l scanme.nmap.org -p 1-100 -s SYNSTEALTH -t 2
+
 Scanning ports declared in a text file for multiple hosts:
 
     python portscanner.py -l scanme.nmap.org 10.0.20.0/30 -pf ./tests/ports.txt
 
 Scanning a range of ports for hosts declared in a text file. Additionally, maximum number of threads and timeout is declared.
 
-    python portscanner.py -f ./tests/ips.txt -p 1-1000 -tc 1000 -t 0.5
+    python portscanner.py -f ./tests/ips.txt -p 1-60000 -tc 10000 -t 0.5
