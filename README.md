@@ -7,7 +7,7 @@ Made by:
 
 This is a TCP port scanner made with Python 3. Install required packages by running:
 
-    pip install -r requirements/base.txt
+    pip install -r requirements.txt
 
 We recommend installing in a isolated virtual environment which you can setup by running (here using the name env):
 
